@@ -1,0 +1,194 @@
+pause_check_event = true;
+        mark_parent_nodes(tv.Nodes[0]);
+        pause_check_event = false;
+
+  public void create_menus(string parent_menu_code, TreeNode parent_node, string menu_serial)
+    {
+        string filter = "";
+        if (parent_menu_code.ToLower().Equals("null"))
+        {
+            filter = "ParentMenuCode IS NULL";
+        }
+        else
+            filter = "ParentMenuCode = '" + parent_menu_code + "'";
+
+        dt_all_axs.DefaultView.RowFilter = filter;
+        DataTable dt_temp = dt_all_axs.DefaultView.ToTable();
+
+        for (int i = 0; i < dt_temp.Rows.Count; i++)
+        {
+            string menu_code = dt_temp.Rows[i]["MenuCode"].ToString();
+            string menu_name = dt_temp.Rows[i]["MenuName"].ToString();
+            string axs_desc = dt_temp.Rows[i]["AxsDesc"].ToString();
+            string axs_code = dt_temp.Rows[i]["AxsCode"].ToString();
+
+            TreeNode child_node = new TreeNode();
+
+            if (string.IsNullOrEmpty(menu_code))
+                child_node.Name = parent_menu_code;
+            else
+                child_node.Name = menu_code;
+
+            if (string.IsNullOrEmpty(menu_name))
+                child_node.Text = axs_desc;
+            else
+                child_node.Text = menu_name;
+
+            if (!string.IsNullOrEmpty(axs_code))
+                child_node.Tag = axs_code;
+            else
+                child_node.NodeFont = new Font(tv.Font, FontStyle.Bold);
+
+            if (!string.IsNullOrEmpty(axs_code))
+            {
+                DataRow[] dr = dt_X_emp_axs.Select("MenuCode = '" + parent_menu_code + "' AND AxsCode = '" + axs_code + "'");
+                if (dr.Length > 0)
+                {
+                    DataRow emp_row = dt_emp_axs.Select("MenuCode = '" + parent_menu_code + "' AND AxsCode = '" + axs_code + "' ")[0];
+                    int emp_row_index = dt_emp_axs.Rows.IndexOf(emp_row);
+                    dt_emp_axs.Rows[emp_row_index]["HasAxs"] = true;
+                    child_node.Checked = true;
+                }
+                else
+                {
+                    child_node.Checked = false;
+                }
+            }
+
+            if (parent_menu_code.ToLower().Equals("null"))
+                tv.Nodes.Add(child_node);
+            else
+                parent_node.Nodes.Add(child_node);
+
+            create_menus(menu_code, child_node, menu_serial);
+
+        }
+    }
+
+
+void mark_parent_nodes(TreeNode node)
+    {
+        for (int i = 0; i < node.Nodes.Count; i++)
+        {
+            if (node.Nodes[i].Tag != null)
+            {
+                int axs_count = dt_emp_axs.Select("MenuCode = '" + node.Nodes[i].Name + "' AND HasAxs = 1").Length;
+                if (axs_count == 0)
+                {
+                    TreeNode nd = node.Parent;
+                    while (nd != null)
+                    {
+
+                        if (!values.ContainsKey(nd.Name))
+                            values[nd.Name] = false;
+
+                        nd = nd.Parent;
+                    }
+
+                    if (!values.ContainsKey(node.Name))
+                        values[node.Name] = false;
+                }
+                else
+                    node.Checked = true;
+
+            }
+            else if (node.Nodes[i].Tag == null)
+            {
+                if (i == node.Nodes.Count - 1 && !values.ContainsKey(node.Name))
+                {
+                    node.Checked = true;
+                }
+                else
+                    node.Checked = false;
+            }
+
+            mark_parent_nodes(node.Nodes[i]);
+        }
+
+    }
+
+
+
+ private void tv_AfterCollapse(object sender, TreeViewEventArgs e)
+    {
+        try
+        {
+            tv.SelectedNode.EnsureVisible();
+        }
+        catch (Exception)
+        {
+
+        }
+    }
+
+
+
+ private void tv_AfterExpand(object sender, TreeViewEventArgs e)
+    {
+        try
+        {
+            tv.Nodes[tv.SelectedNode.Nodes[0].Index].EnsureVisible();
+        }
+        catch (Exception)
+        {
+
+        }
+    }
+
+
+ bool pause_check_event = false;
+    private void tv_AfterCheck(object sender, TreeViewEventArgs e)
+    {
+        if (pause_check_event)
+            return;
+        bool has_axs = e.Node.Checked;
+        if (e.Node.Tag != null)
+        {
+            DataRow dr = dt_emp_axs.Select("MenuCode = '" + e.Node.Name + "' AND AxsCode = '" + e.Node.Tag.ToString() + "' ")[0];
+            int row_index = dt_emp_axs.Rows.IndexOf(dr);
+            dt_emp_axs.Rows[row_index]["HasAxs"] = has_axs;
+            access_modified = true;
+        }
+
+        check_child_nodes(e.Node, has_axs);
+        values = new Dictionary<string, bool>();
+        mark_parent_nodes(tv.Nodes[0]);
+        pause_check_event = false;
+    }
+    private void tv_BeforeCheck(object sender, TreeViewCancelEventArgs e)
+    {
+        if (pause_check_event)
+        {
+            e.Cancel = false;
+            return;
+        }
+        string axs_code = "";
+        string menu_code = e.Node.Name;
+        if (e.Node.Tag != null)
+        {
+            if (!(cAuth.isAdmin || cAuth.HasAxs(axs_code, menu_code)))
+                e.Cancel = true;
+        }
+    }
+
+
+
+void check_child_nodes(TreeNode node, bool is_checked)
+    {
+
+        pause_check_event = true;
+        if (node.Tag != null)
+        {
+            if (!(cAuth.isAdmin || cAuth.HasAxs(node.Tag.ToString(), node.Name)))
+                return;
+            DataRow dr = dt_emp_axs.Select("MenuCode = '" + node.Name + "' AND AxsCode = '" + node.Tag.ToString() + "' ")[0];
+            int row_index = dt_emp_axs.Rows.IndexOf(dr);
+            dt_emp_axs.Rows[row_index]["HasAxs"] = is_checked;
+            access_modified = true;
+        }
+        node.Checked = is_checked;
+        for (int i = 0; i < node.Nodes.Count; i++)
+        {
+            check_child_nodes(node.Nodes[i], is_checked);
+        }
+    }

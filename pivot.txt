@@ -1,0 +1,13 @@
+SB.AppendLine("SELECT ERPVendorId, VendorName, CESGroup, CESRep, RegDate, ");
+                SB.AppendLine("Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, DEC,");
+                SB.AppendLine("SUM(ISNULL(Jan, 0) + ISNULL(Feb, 0) + ISNULL(Mar, 0) + ISNULL(Apr, 0) + ISNULL(May, 0) + ISNULL(Jun, 0) + ISNULL(Jul, 0) + ISNULL(Aug, 0) + ISNULL(Sep, 0) + ISNULL(Oct, 0) + ISNULL(Nov, 0) + ISNULL(DEC, 0)) AS Total");
+                SB.AppendLine("FROM (");
+                SB.AppendLine("SELECT CASE When VendorId = 0 THEN  ReturnCustNum  WHEN ERPVendorId IS NOT NULL THEN ERPVendorId  ELSE  CAST(VendorId AS VARCHAR(100)) END ERPVendorId, VendorName, CESGroup, CESRep, RegDate, TrackerQty, TrackerMonth");
+                SB.AppendLine("FROM LcdBuyerDb.Lcd.Rpt_TrackerHistory");
+                SB.AppendLine("WHERE TrackerYear = '" + year + "' ");
+                SB.AppendLine(") src");
+                SB.AppendLine("PIVOT(SUM(TrackerQty) FOR TrackerMonth IN (");
+                SB.AppendLine("Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, DEC");
+                SB.AppendLine(")) PIV");
+                SB.AppendLine("GROUP BY ERPVendorid, VendorName, CESGroup, CESRep, RegDate, Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, DEC");
+                SB.AppendLine("ORDER BY SUM(ISNULL(Jan, 0) + ISNULL(Feb, 0) + ISNULL(Mar, 0) + ISNULL(Apr, 0) + ISNULL(May, 0) + ISNULL(Jun, 0) + ISNULL(Jul, 0) + ISNULL(Aug, 0) + ISNULL(Sep, 0) + ISNULL(Oct, 0) + ISNULL(Nov, 0) + ISNULL(DEC, 0)) DESC");
